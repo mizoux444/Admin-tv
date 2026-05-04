@@ -43,6 +43,7 @@ input{
     margin:5px 0;
     border-radius:8px;
     border:1px solid #ccc;
+    box-sizing:border-box;
 }
 
 button{
@@ -71,7 +72,6 @@ button{
     margin:10px 0;
 }
 
-/* 🔥 URL MARQUEE STYLE */
 .url-box{
     width:100%;
     overflow:hidden;
@@ -103,30 +103,26 @@ button{
 
 <div class="container">
 
-<!-- BACK -->
 <button id="backBtn" class="btn hidden" onclick="loadCategories()">
 ⬅ رجوع للأقسام
 </button>
 
-<!-- ADD CATEGORY -->
 <div class="card" id="addCatBox">
-<h3>➕ إضافة قسم</h3>
-<input id="catName" placeholder="اسم القسم">
-<button class="btn" onclick="addCategory()">إضافة</button>
+    <h3>➕ إضافة قسم</h3>
+    <input id="catName" placeholder="اسم القسم">
+    <button class="btn" onclick="addCategory()">إضافة</button>
 </div>
 
-<!-- VIEW -->
 <div id="view"></div>
 
-<!-- CHANNEL FORM (hidden until category) -->
 <div class="card hidden" id="channelForm">
-<h3>➕ / ✏️ قناة</h3>
+    <h3>➕ / ✏️ قناة</h3>
 
-<input id="chName" placeholder="اسم القناة">
-<input id="chUrl" placeholder="رابط القناة">
-<input id="chLogo" placeholder="لوغو (اختياري)">
+    <input id="chName" placeholder="اسم القناة">
+    <input id="chUrl" placeholder="رابط القناة">
+    <input id="chLogo" placeholder="لوغو (اختياري)">
 
-<button class="btn" onclick="saveChannel()">حفظ</button>
+    <button class="btn" onclick="saveChannel()">حفظ</button>
 </div>
 
 </div>
@@ -134,9 +130,9 @@ button{
 <script>
 
 firebase.initializeApp({
-apiKey:"x",
-databaseURL:"https://mizouxxx-51101-default-rtdb.firebaseio.com",
-projectId:"mizouxxx-51101"
+    apiKey:"x",
+    databaseURL:"https://mizouxxx-51101-default-rtdb.firebaseio.com",
+    projectId:"mizouxxx-51101"
 });
 
 const db = firebase.database();
@@ -144,18 +140,39 @@ const db = firebase.database();
 let currentCategory = null;
 let editId = null;
 
+/* ================= ADD CATEGORY ================= */
+function addCategory(){
+    let name = document.getElementById("catName").value.trim();
+
+    if(!name){
+        alert("دخل اسم القسم");
+        return;
+    }
+
+    db.ref("categories").push({
+        name: name
+    });
+
+    document.getElementById("catName").value = "";
+}
+
 /* ================= LOAD CATEGORIES ================= */
 function loadCategories(){
 
     currentCategory = null;
+    editId = null;
 
     document.getElementById("title").innerText = "📁 الأقسام";
     document.getElementById("backBtn").classList.add("hidden");
     document.getElementById("channelForm").classList.add("hidden");
     document.getElementById("addCatBox").classList.remove("hidden");
 
+    document.getElementById("chName").value = "";
+    document.getElementById("chUrl").value = "";
+    document.getElementById("chLogo").value = "";
+
     db.ref("categories").on("value", snap=>{
-        let html="";
+        let html = "";
 
         snap.forEach(cat=>{
             let c = cat.val();
@@ -175,7 +192,7 @@ function loadCategories(){
             `;
         });
 
-        document.getElementById("view").innerHTML = html;
+        document.getElementById("view").innerHTML = html || "<div class='card'>لا توجد أقسام</div>";
     });
 }
 
@@ -183,12 +200,17 @@ function loadCategories(){
 function openCategory(id,name){
 
     currentCategory = id;
+    editId = null;
 
     document.getElementById("title").innerText = name;
 
     document.getElementById("backBtn").classList.remove("hidden");
     document.getElementById("channelForm").classList.remove("hidden");
     document.getElementById("addCatBox").classList.add("hidden");
+
+    document.getElementById("chName").value = "";
+    document.getElementById("chUrl").value = "";
+    document.getElementById("chLogo").value = "";
 
     loadChannels(id);
 }
@@ -201,7 +223,7 @@ function loadChannels(catId){
     .equalTo(catId)
     .on("value", snap=>{
 
-        let html="";
+        let html = "";
 
         snap.forEach(ch=>{
             let c = ch.val();
@@ -214,7 +236,7 @@ function loadChannels(catId){
                     <span class="url-marquee">${c.url}</span>
                 </div>
 
-                <button class="small-btn" onclick="editChannel('${ch.key}','${c.name}','${c.url}','${c.logo||""}')">
+                <button class="small-btn" onclick="editChannel('${ch.key}','${c.name}','${c.url}','${c.logo || ""}')">
                     تعديل
                 </button>
 
@@ -225,7 +247,8 @@ function loadChannels(catId){
             `;
         });
 
-        document.getElementById("view").innerHTML = html || "<div class='card'>لا توجد قنوات</div>";
+        document.getElementById("view").innerHTML =
+            html || "<div class='card'>لا توجد قنوات</div>";
     });
 }
 
@@ -237,20 +260,23 @@ function saveChannel(){
         return;
     }
 
-    let name = document.getElementById("chName").value;
-    let url = document.getElementById("chUrl").value;
-    let logo = document.getElementById("chLogo").value;
+    let name = document.getElementById("chName").value.trim();
+    let url = document.getElementById("chUrl").value.trim();
+    let logo = document.getElementById("chLogo").value.trim();
 
-    if(!name || !url) return;
+    if(!name || !url){
+        alert("دخل الاسم والرابط");
+        return;
+    }
 
     if(editId){
-        db.ref("channels/"+editId).update({
+        db.ref("channels/" + editId).update({
             name,
             url,
             logo: logo || "",
             categoryId: currentCategory
         });
-        editId=null;
+        editId = null;
     }else{
         db.ref("channels").push({
             name,
@@ -260,28 +286,28 @@ function saveChannel(){
         });
     }
 
-    document.getElementById("chName").value="";
-    document.getElementById("chUrl").value="";
-    document.getElementById("chLogo").value="";
-
-    loadChannels(currentCategory);
+    document.getElementById("chName").value = "";
+    document.getElementById("chUrl").value = "";
+    document.getElementById("chLogo").value = "";
 }
 
-/* ================= EDIT ================= */
+/* ================= EDIT CHANNEL ================= */
 function editChannel(id,name,url,logo){
-    editId=id;
-    document.getElementById("chName").value=name;
-    document.getElementById("chUrl").value=url;
-    document.getElementById("chLogo").value=logo;
+    editId = id;
+
+    document.getElementById("chName").value = name;
+    document.getElementById("chUrl").value = url;
+    document.getElementById("chLogo").value = logo;
 }
 
-/* ================= DELETE ================= */
+/* ================= DELETE CHANNEL ================= */
 function deleteChannel(id){
-    db.ref("channels/"+id).remove();
+    db.ref("channels/" + id).remove();
 }
 
+/* ================= DELETE CATEGORY ================= */
 function deleteCategory(id){
-    db.ref("categories/"+id).remove();
+    db.ref("categories/" + id).remove();
 }
 
 /* INIT */
