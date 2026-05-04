@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>ADMIN PANEL FINAL</title>
+
+<script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+
+<style>
+body{
+    font-family:sans-serif;
+    background:#8e0000;
+    margin:0;
+    padding:0;
+    color:white;
+}
+
+header{
+    background:#c62828;
+    padding:15px;
+    text-align:center;
+    font-weight:bold;
+}
+
+.container{
+    padding:15px;
+    max-width:700px;
+    margin:auto;
+}
+
+.card{
+    background:white;
+    color:black;
+    padding:15px;
+    border-radius:10px;
+    margin-bottom:10px;
+}
+
+input{
+    width:100%;
+    padding:10px;
+    margin:5px 0;
+    border-radius:8px;
+    border:1px solid #ccc;
+}
+
+button{
+    padding:8px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+}
+
+.btn{
+    background:#c62828;
+    color:white;
+    width:100%;
+}
+
+.small-btn{
+    background:#333;
+    color:white;
+    margin:3px;
+    font-size:12px;
+}
+
+.hidden{display:none;}
+
+#backBtn{
+    margin:10px 0;
+}
+
+/* 🔥 URL MARQUEE STYLE */
+.url-box{
+    width:100%;
+    overflow:hidden;
+    white-space:nowrap;
+    background:#f1f1f1;
+    border-radius:6px;
+    padding:4px;
+    margin-top:5px;
+}
+
+.url-marquee{
+    display:inline-block;
+    padding-left:100%;
+    animation:scroll-url 6s linear infinite;
+    font-size:12px;
+    color:#333;
+}
+
+@keyframes scroll-url{
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-100%); }
+}
+</style>
+</head>
+
+<body>
+
+<header id="title">📁 الأقسام</header>
+
+<div class="container">
+
+<!-- BACK -->
+<button id="backBtn" class="btn hidden" onclick="loadCategories()">
+⬅ رجوع للأقسام
+</button>
+
+<!-- ADD CATEGORY -->
+<div class="card" id="addCatBox">
+<h3>➕ إضافة قسم</h3>
+<input id="catName" placeholder="اسم القسم">
+<button class="btn" onclick="addCategory()">إضافة</button>
+</div>
+
+<!-- VIEW -->
+<div id="view"></div>
+
+<!-- CHANNEL FORM (hidden until category) -->
+<div class="card hidden" id="channelForm">
+<h3>➕ / ✏️ قناة</h3>
+
+<input id="chName" placeholder="اسم القناة">
+<input id="chUrl" placeholder="رابط القناة">
+<input id="chLogo" placeholder="لوغو (اختياري)">
+
+<button class="btn" onclick="saveChannel()">حفظ</button>
+</div>
+
+</div>
+
+<script>
+
+firebase.initializeApp({
+apiKey:"x",
+databaseURL:"https://mizouxxx-51101-default-rtdb.firebaseio.com",
+projectId:"mizouxxx-51101"
+});
+
+const db = firebase.database();
+
+let currentCategory = null;
+let editId = null;
+
+/* ================= LOAD CATEGORIES ================= */
+function loadCategories(){
+
+    currentCategory = null;
+
+    document.getElementById("title").innerText = "📁 الأقسام";
+    document.getElementById("backBtn").classList.add("hidden");
+    document.getElementById("channelForm").classList.add("hidden");
+    document.getElementById("addCatBox").classList.remove("hidden");
+
+    db.ref("categories").on("value", snap=>{
+        let html="";
+
+        snap.forEach(cat=>{
+            let c = cat.val();
+
+            html += `
+            <div class="card">
+                <b>📁 ${c.name}</b><br>
+
+                <button class="small-btn" onclick="openCategory('${cat.key}','${c.name}')">
+                    فتح
+                </button>
+
+                <button class="small-btn" onclick="deleteCategory('${cat.key}')">
+                    حذف
+                </button>
+            </div>
+            `;
+        });
+
+        document.getElementById("view").innerHTML = html;
+    });
+}
+
+/* ================= OPEN CATEGORY ================= */
+function openCategory(id,name){
+
+    currentCategory = id;
+
+    document.getElementById("title").innerText = name;
+
+    document.getElementById("backBtn").classList.remove("hidden");
+    document.getElementById("channelForm").classList.remove("hidden");
+    document.getElementById("addCatBox").classList.add("hidden");
+
+    loadChannels(id);
+}
+
+/* ================= LOAD CHANNELS ================= */
+function loadChannels(catId){
+
+    db.ref("channels")
+    .orderByChild("categoryId")
+    .equalTo(catId)
+    .on("value", snap=>{
+
+        let html="";
+
+        snap.forEach(ch=>{
+            let c = ch.val();
+
+            html += `
+            <div class="card">
+                <b>${c.name}</b>
+
+                <div class="url-box">
+                    <span class="url-marquee">${c.url}</span>
+                </div>
+
+                <button class="small-btn" onclick="editChannel('${ch.key}','${c.name}','${c.url}','${c.logo||""}')">
+                    تعديل
+                </button>
+
+                <button class="small-btn" onclick="deleteChannel('${ch.key}')">
+                    حذف
+                </button>
+            </div>
+            `;
+        });
+
+        document.getElementById("view").innerHTML = html || "<div class='card'>لا توجد قنوات</div>";
+    });
+}
+
+/* ================= SAVE CHANNEL ================= */
+function saveChannel(){
+
+    if(!currentCategory){
+        alert("اختار قسم أولاً");
+        return;
+    }
+
+    let name = document.getElementById("chName").value;
+    let url = document.getElementById("chUrl").value;
+    let logo = document.getElementById("chLogo").value;
+
+    if(!name || !url) return;
+
+    if(editId){
+        db.ref("channels/"+editId).update({
+            name,
+            url,
+            logo: logo || "",
+            categoryId: currentCategory
+        });
+        editId=null;
+    }else{
+        db.ref("channels").push({
+            name,
+            url,
+            logo: logo || "",
+            categoryId: currentCategory
+        });
+    }
+
+    document.getElementById("chName").value="";
+    document.getElementById("chUrl").value="";
+    document.getElementById("chLogo").value="";
+
+    loadChannels(currentCategory);
+}
+
+/* ================= EDIT ================= */
+function editChannel(id,name,url,logo){
+    editId=id;
+    document.getElementById("chName").value=name;
+    document.getElementById("chUrl").value=url;
+    document.getElementById("chLogo").value=logo;
+}
+
+/* ================= DELETE ================= */
+function deleteChannel(id){
+    db.ref("channels/"+id).remove();
+}
+
+function deleteCategory(id){
+    db.ref("categories/"+id).remove();
+}
+
+/* INIT */
+loadCategories();
+
+</script>
+
+</body>
+</html>
